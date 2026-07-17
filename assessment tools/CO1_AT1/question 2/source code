@@ -1,0 +1,13 @@
+def recurrence(n):
+    if n <= 1:
+        return 1
+
+    return 5 * recurrence(n // 2) + n
+
+n = int(input("Enter value of n: "))
+
+answer = recurrence(n)
+
+print("\nApplication : Distributed Database Query Processor")
+print("Recurrence  : T(n) = 5T(n/2) + n")
+print("Estimated Cost :", answer)
