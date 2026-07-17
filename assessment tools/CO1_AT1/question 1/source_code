@@ -1,0 +1,15 @@
+import math
+
+def T(n):
+    if n <= 1:
+        return 1
+
+    return 2 * T(n // 2) + math.log2(n)
+
+n = int(input("Enter value of n: "))
+
+result = T(n)
+
+print("\nApplication : Multi-Source Log Processing System")
+print("Recurrence  : T(n) = 2T(n/2) + log n")
+print("Estimated Cost :", round(result,2))
