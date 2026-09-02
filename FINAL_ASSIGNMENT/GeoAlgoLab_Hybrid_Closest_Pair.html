@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoAlgoLab - Hybrid Closest Pair Visualizer</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}
+header{background:#172554;color:white;padding:24px 5%;position:sticky;top:0;z-index:5}
+header h1{margin:0 0 6px;font-size:28px}header p{margin:0;color:#dbeafe}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+nav button,.btn{border:0;border-radius:8px;padding:10px 14px;background:#fff;color:#172554;cursor:pointer;font-weight:bold}
+nav button.active,.btn.primary{background:#2563eb;color:white}
+main{max-width:1250px;margin:auto;padding:25px 18px}.page{display:none}.page.active{display:block}
+.card{background:white;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 3px 14px #00000010}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:15px}
+.stat{padding:18px;border:1px solid #e5e7eb;border-radius:12px}.stat b{display:block;font-size:27px;margin-top:6px;color:#2563eb}
+h2{margin-top:0;color:#172554}h3{color:#1e3a8a}
+canvas{width:100%;max-height:600px;border:1px solid #dbe3ef;border-radius:10px;background:#fff}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+input,select{padding:10px;border:1px solid #cbd5e1;border-radius:8px}
+table{width:100%;border-collapse:collapse;background:white}th,td{padding:11px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#eff6ff}
+.code{background:#111827;color:#e5e7eb;padding:16px;border-radius:10px;overflow:auto;white-space:pre-wrap;font-family:Consolas,monospace}
+.badge{display:inline-block;padding:5px 9px;border-radius:99px;background:#dbeafe;color:#1e40af;font-size:13px;font-weight:bold}
+.note{background:#eff6ff;padding:14px;border-left:4px solid #2563eb;border-radius:7px}
+.progress{height:12px;background:#e5e7eb;border-radius:10px;overflow:hidden}.progress i{display:block;height:100%;width:0;background:#2563eb}
+footer{text-align:center;padding:30px;color:#64748b}
+.small{font-size:13px;color:#64748b}
+</style>
+</head>
+<body>
+<header>
+<h1>GeoAlgoLab</h1>
+<p>Interactive Hybrid Closest-Pair-of-Points Algorithm Visualizer</p>
+<nav id="nav"></nav>
+</header>
+
+<main>
+<section id="dashboard" class="page active">
+<div class="card">
+<h2>Algorithm Laboratory</h2>
+<p>This standalone HTML application demonstrates the three algorithms required for CSA0619: <b>Brute Force, Divide and Conquer, and the developed Hybrid approach</b>. It also measures distance calculations, execution time and the effect of the switching threshold.</p>
+<div class="note"><b>How to use:</b> Start with the Dataset tab, generate or upload points, then use the Visualizer and Benchmark tabs.</div>
+</div>
+<div class="grid">
+<div class="stat">Input points<b id="sPoints">0</b></div>
+<div class="stat">Closest distance<b id="sDist">—</b></div>
+<div class="stat">Hybrid threshold<b id="sThreshold">16</b></div>
+<div class="stat">Best algorithm<b id="sBest">—</b></div>
+</div>
+<div class="card"><h2>Required Algorithms</h2>
+<table><tr><th>Approach</th><th>Core idea</th><th>Expected complexity</th></tr>
+<tr><td>Brute Force</td><td>Check every possible pair</td><td>O(n²)</td></tr>
+<tr><td>Divide & Conquer</td><td>Split around median x and inspect strip</td><td>O(n log n)</td></tr>
+<tr><td>Hybrid</td><td>D&C for large subproblems, Brute Force below threshold</td><td>O(n log n) asymptotically</td></tr>
+</table></div>
+</section>
+
+<section id="dataset" class="page">
+<div class="card"><h2>1. Dataset Explorer</h2>
+<p>Use generated coordinate data for demonstration or upload a CSV containing <b>x,y</b> columns. For a real-world submission, the same interface can accept coordinates from a public geospatial dataset such as airports, weather stations or cell towers.</p>
+<div class="controls">
+<label>Number of points <input id="nInput" type="number" min="2" max="5000" value="100"></label>
+<button class="btn primary" onclick="generateData()">Generate Dataset</button>
+<label class="btn">Upload CSV <input id="csvFile" type="file" accept=".csv" hidden onchange="loadCSV(event)"></label>
+</div>
+<p id="datasetInfo" class="small"></p>
+<canvas id="dataCanvas" width="1100" height="560"></canvas>
+</div>
+</section>
+
+<section id="visualizer" class="page">
+<div class="card"><h2>2. Step-by-Step Algorithm Visualizer</h2>
+<div class="controls">
+<select id="algoSelect"><option value="brute">Brute Force</option><option value="dc">Divide & Conquer</option><option value="hybrid">Hybrid</option></select>
+<label>Threshold <input id="threshold" type="number" min="2" max="100" value="16" style="width:80px"></label>
+<button class="btn primary" onclick="startAnimation()">Start</button>
+<button class="btn" onclick="pauseAnimation()">Pause</button>
+<button class="btn" onclick="nextStep()">Next Step</button>
+<button class="btn" onclick="resetAnimation()">Reset</button>
+</div>
+<div class="grid">
+<div class="stat">Step<b id="vStep">0</b></div><div class="stat">Distance checks<b id="vChecks">0</b></div><div class="stat">Current minimum<b id="vMin">—</b></div><div class="stat">Phase<b id="vPhase">Ready</b></div>
+</div>
+<canvas id="vizCanvas" width="1100" height="560"></canvas>
+<p id="vExplanation" class="note">Select an algorithm and press Start. The visualization shows the points and the pair currently being evaluated.</p>
+</div>
+</section>
+
+<section id="complexity" class="page">
+<div class="card"><h2>3. Complexity & Theory Lab</h2>
+<h3>Brute Force</h3>
+<p>For n points, the algorithm checks n(n−1)/2 pairs.</p>
+<p><b>T(n) = Θ(n²)</b>, therefore O(n²) upper bound and Ω(n²) lower bound for the standard implementation.</p>
+<div class="code">for i = 0 to n-1
+    for j = i+1 to n-1
+        d = distance(P[i], P[j])
+        update minimum</div>
+<h3>Divide and Conquer</h3>
+<p>The points are divided around the median x-coordinate. The two halves are solved recursively and points close to the dividing line are examined in a strip.</p>
+<p><b>T(n) = 2T(n/2) + O(n)</b></p>
+<p>Using the Master Theorem: a=2, b=2, f(n)=Θ(n). Since n^(log₂2)=n, this is Case 2, giving <b>T(n)=Θ(n log n)</b>.</p>
+<div class="code">closest(P):
+    if |P| <= small threshold:
+        return bruteForce(P)
+
+    split P at median x
+    dl = closest(left)
+    dr = closest(right)
+    d = min(dl, dr)
+
+    strip = points within d of median
+    compare relevant strip neighbors
+
+    return best pair</div>
+<h3>Hybrid Design</h3>
+<div class="code">hybrid(P, threshold):
+    if size(P) <= threshold:
+        return bruteForce(P)
+
+    split around median x
+    solve left recursively
+    solve right recursively
+    combine using dividing strip</div>
+<div class="note"><b>Key engineering idea:</b> Brute Force has high asymptotic cost but very small subproblems have low overhead. The Hybrid algorithm exploits this by switching methods at an experimentally selected threshold.</div>
+</div>
+</section>
+
+<section id="benchmark" class="page">
+<div class="card"><h2>4. Experimental Benchmark</h2>
+<p>Run all three approaches on increasing input sizes. Results are measured in this browser using the same dataset for each algorithm.</p>
+<div class="controls">
+<input id="sizes" value="20,40,80,160,320,640">
+<label>Threshold <input id="benchThreshold" type="number" value="16" min="2" max="100"></label>
+<button class="btn primary" onclick="runBenchmark()">Run Benchmark</button>
+</div>
+<div id="benchStatus" class="note">No benchmark has been run.</div>
+<table id="results"><thead><tr><th>n</th><th>Brute time (ms)</th><th>D&C time (ms)</th><th>Hybrid time (ms)</th><th>Brute checks</th><th>D&C checks</th><th>Hybrid checks</th></tr></thead><tbody></tbody></table>
+<div class="card"><h3>Performance Chart</h3><canvas id="chartCanvas" width="1100" height="500"></canvas></div>
+</div>
+</section>
+
+<section id="thresholdLab" class="page">
+<div class="card"><h2>5. Hybrid Threshold Optimizer</h2>
+<p>The threshold should not be chosen arbitrarily. Test several values and select the one producing the lowest measured Hybrid execution time on the target workload.</p>
+<div class="controls"><input id="thresholds" value="4,8,12,16,24,32,48,64"><button class="btn primary" onclick="optimizeThreshold()">Find Best Threshold</button></div>
+<div id="thresholdResult" class="note">Ready.</div>
+<table id="thresholdTable"><thead><tr><th>Threshold</th><th>Time (ms)</th><th>Distance checks</th></tr></thead><tbody></tbody></table>
+</div>
+</section>
+
+<section id="method" class="page">
+<div class="card"><h2>6. Methodology & Engineering Explanation</h2>
+<h3>Input → Preparation → Algorithms → Threshold → Evaluation</h3>
+<div class="code">Dataset
+   ↓
+Data validation and coordinate preparation
+   ↓
+Brute Force implementation ─────────┐
+                                    │
+Divide & Conquer implementation ───┼→ Hybrid development
+                                    │          ↓
+                                    └→ Threshold experimentation
+                                               ↓
+                                  Complexity + performance analysis
+                                               ↓
+                                     Engineering decision</div>
+<h3>Euclidean Distance</h3>
+<p>For points P₁(x₁,y₁) and P₂(x₂,y₂):</p>
+<div class="code">d(P₁,P₂) = √((x₂-x₁)² + (y₂-y₁)²)</div>
+<p>The implementation compares squared distances internally where possible, avoiding unnecessary square-root operations while preserving the same closest pair.</p>
+<h3>Correctness</h3>
+<p>Every algorithm returns the closest pair. The application compares the resulting pair distances and reports whether the implementations agree.</p>
+<h3>Engineering Trade-off</h3>
+<p>Brute Force is simple and has low implementation overhead but scales poorly. Divide and Conquer scales much better but introduces recursion, sorting and strip-management overhead. Hybridization attempts to obtain the practical benefits of both.</p>
+</div>
+</section>
+
+<section id="report" class="page">
+<div class="card"><h2>7. Report Builder</h2>
+<p>Use the results generated by the Benchmark and Threshold tabs when preparing the assignment report. The following structure matches the uploaded assignment requirements.</p>
+<ol>
+<li><b>Problem Understanding and Formulation</b> — geospatial closest pair, inputs, outputs, constraints.</li>
+<li><b>Application of Course Knowledge</b> — CO1 complexity analysis, CO2 Brute Force, CO3 Divide and Conquer.</li>
+<li><b>Solution / Design / Methodology</b> — algorithms, pseudocode, flowchart, hybrid strategy and threshold.</li>
+<li><b>Modern Tools</b> — HTML/JavaScript demonstration, browser-based measurement, dataset preparation and visualization.</li>
+<li><b>Results and Validation</b> — execution time, comparisons, memory discussion, scalability and correctness.</li>
+<li><b>Analysis and Engineering Decision</b> — performance trade-offs and justification of threshold.</li>
+<li><b>Broader Considerations</b> — efficient resources, infrastructure planning and SDG 9.</li>
+<li><b>Conclusion</b> — findings, best approach, limitations and future work.</li>
+<li><b>Student Reflection</b> — learning, threshold challenges and improvements.</li>
+<li><b>References</b> — dataset, literature, software and AI-assisted tools where applicable.</li>
+</ol>
+<div class="note"><b>Important:</b> Do not copy illustrative/generated benchmark numbers into the final report as if they were measured results. Run the benchmark on the same machine/environment used for your submission and use those measurements.</div>
+</div>
+</section>
+</main>
+<footer>GeoAlgoLab • CSA0619 Design and Analysis of Algorithms • Standalone HTML Application</footer>
+
+<script>
+let points=[], anim=[], animIndex=0, timer=null, lastResults=[], thresholdResults=[];
+
+const pages=["dashboard","dataset","visualizer","complexity","benchmark","thresholdLab","method","report"];
+const labels=["Dashboard","Dataset","Visualizer","Complexity","Benchmark","Threshold Lab","Methodology","Report"];
+const nav=document.getElementById("nav");
+pages.forEach((p,i)=>{let b=document.createElement("button");b.textContent=labels[i];b.onclick=()=>showPage(p,b);if(i===0)b.classList.add("active");nav.appendChild(b)});
+function showPage(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");}
+
+function generateData(){
+ const n=Math.max(2,Math.min(5000,+document.getElementById("nInput").value||100));
+ points=Array.from({length:n},(_,i)=>({x:Math.random()*1000,y:Math.random()*600,id:i+1}));
+ document.getElementById("datasetInfo").textContent=`Generated ${n} coordinate points. Coordinates are normalized demonstration coordinates.`;
+ drawPoints("dataCanvas",points);
+ updateStats();
+}
+function loadCSV(e){
+ const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=()=>{const rows=r.result.split(/\r?\n/).filter(Boolean);let out=[];
+ rows.forEach((line,i)=>{let a=line.split(",").map(Number);if(a.length>=2&&!isNaN(a[0])&&!isNaN(a[1]))out.push({x:a[0],y:a[1],id:out.length+1})});
+ if(out.length>=2){points=out.slice(0,5000);document.getElementById("datasetInfo").textContent=`Loaded ${points.length} coordinate points from CSV.`;drawPoints("dataCanvas",points);updateStats()}else alert("CSV must contain numeric x,y columns.");};r.readAsText(f);
+}
+function updateStats(){document.getElementById("sPoints").textContent=points.length;document.getElementById("sThreshold").textContent=document.getElementById("threshold").value}
+
+function drawPoints(cid,pts,current=null,best=null,split=null){
+ const c=document.getElementById(cid),ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);
+ if(!pts.length)return;let minX=Math.min(...pts.map(p=>p.x)),maxX=Math.max(...pts.map(p=>p.x)),minY=Math.min(...pts.map(p=>p.y)),maxY=Math.max(...pts.map(p=>p.y));
+ const sx=(c.width-50)/(maxX-minX||1),sy=(c.height-50)/(maxY-minY||1);
+ const tr=p=>({x:25+(p.x-minX)*sx,y:c.height-25-(p.y-minY)*sy});
+ if(split!==null){let a=tr({x:split,y:minY}),b=tr({x:split,y:maxY});ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(a.x,0);ctx.lineTo(a.x,c.height);ctx.strokeStyle="#94a3b8";ctx.stroke();ctx.setLineDash([])}
+ pts.forEach(p=>{let q=tr(p);ctx.beginPath();ctx.arc(q.x,q.y,4,0,Math.PI*2);ctx.fillStyle="#2563eb";ctx.fill()});
+ if(current){let a=tr(current[0]),b=tr(current[1]);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle="#dc2626";ctx.lineWidth=3;ctx.stroke();ctx.lineWidth=1}
+ if(best){let a=tr(best[0]),b=tr(best[1]);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle="#16a34a";ctx.lineWidth=4;ctx.stroke();ctx.lineWidth=1}
+}
+
+function dist2(a,b){return (a.x-b.x)**2+(a.y-b.y)**2}
+function brute(P){
+ let best=[null,null],d=Infinity,checks=0;
+ for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++){checks++;let z=dist2(P[i],P[j]);if(z<d){d=z;best=[P[i],P[j]]}}
+ return {pair:best,d,checks};
+}
+function dc(P){
+ if(P.length<=3)return brute(P);
+ let A=P.slice().sort((a,b)=>a.x-b.x), sy=P.slice().sort((a,b)=>a.y-b.y);
+ function rec(arr){
+  if(arr.length<=3)return brute(arr);
+  let m=Math.floor(arr.length/2),x=arr[m].x;
+  let L=rec(arr.slice(0,m)),R=rec(arr.slice(m));
+  let best=L.d<R.d?L:R, strip=sy.filter(p=>Math.abs(p.x-x)**2<best.d);
+  let checks= L.checks+R.checks;
+  for(let i=0;i<strip.length;i++)for(let j=i+1;j<strip.length && j<i+8;j++){checks++;let z=dist2(strip[i],strip[j]);if(z<best.d)best={pair:[strip[i],strip[j]],d:z,checks:0}}
+  best.checks=checks;return best;
+ }
+ return rec(A);
+}
+function hybrid(P,t){
+ function rec(arr){
+  if(arr.length<=t)return brute(arr);
+  let A=arr.slice().sort((a,b)=>a.x-b.x),m=Math.floor(A.length/2),x=A[m].x;
+  let L=rec(A.slice(0,m)),R=rec(A.slice(m));let best=L.d<R.d?L:R;
+  let sy=A.slice().sort((a,b)=>a.y-b.y),strip=sy.filter(p=>(p.x-x)**2<best.d),checks=L.checks+R.checks;
+  for(let i=0;i<strip.length;i++)for(let j=i+1;j<strip.length&&j<i+8;j++){checks++;let z=dist2(strip[i],strip[j]);if(z<best.d)best={pair:[strip[i],strip[j]],d:z,checks:0}}
+  best.checks=checks;return best;
+ }
+ return rec(P);
+}
+
+function prepareAnimation(){
+ if(points.length<2){generateData()}
+ const a=document.getElementById("algoSelect").value,t=+document.getElementById("threshold").value||16;
+ anim=[];let P=points;
+ if(a==="brute"){for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++)anim.push({p:[P[i],P[j]],phase:"Brute Force: comparing pair"})}
+ else {let sorted=P.slice().sort((x,y)=>x.x-y.x),mid=sorted[Math.floor(sorted.length/2)].x;
+   for(let i=0;i<Math.min(sorted.length,60);i++)anim.push({split:mid,phase:"Divide: partition around median x"});
+   let r=a==="hybrid"?hybrid(P,t):dc(P);anim.push({best:r.pair,phase:a==="hybrid"?"Hybrid: final closest pair":"Divide & Conquer: final closest pair"});
+ }
+ animIndex=0;renderAnimation();
+}
+function renderAnimation(){
+ if(!anim.length)return;let s=anim[animIndex],r=brute(points.slice(0,Math.min(points.length,100)));
+ drawPoints("vizCanvas",points,s.p||null,s.best||null,s.split??null);
+ document.getElementById("vStep").textContent=animIndex+1+"/"+anim.length;
+ document.getElementById("vChecks").textContent=animIndex+1;
+ document.getElementById("vPhase").textContent=s.phase;
+ document.getElementById("vExplanation").textContent=s.p?`The algorithm is examining point ${s.p[0].id} against point ${s.p[1].id}. The red line represents the current comparison.`:s.best?`The green line is the closest pair found. Distance = ${Math.sqrt(dist2(...s.best)).toFixed(4)}.`:`The vertical line shows the current median x-coordinate used to partition the problem.`;
+}
+function startAnimation(){if(!anim.length)prepareAnimation();clearInterval(timer);timer=setInterval(()=>{if(animIndex<anim.length-1){animIndex++;renderAnimation()}else clearInterval(timer)},100)}
+function pauseAnimation(){clearInterval(timer)}
+function nextStep(){if(!anim.length)prepareAnimation();else if(animIndex<anim.length-1){animIndex++;renderAnimation()}}
+function resetAnimation(){clearInterval(timer);animIndex=0;if(anim.length)renderAnimation()}
+document.getElementById("threshold").oninput=updateStats;
+
+function runTimed(fn,P){let t=performance.now(),r=fn(P),ms=performance.now()-t;return {...r,ms}}
+function runBenchmark(){
+ if(points.length<2)generateData();let sizes=document.getElementById("sizes").value.split(",").map(Number).filter(n=>n>=2);
+ let th=+document.getElementById("benchThreshold").value||16,body=document.querySelector("#results tbody");body.innerHTML="";lastResults=[];
+ sizes.forEach(n=>{let P=points.slice(0,Math.min(n,points.length));if(P.length<2)return;
+ let b=runTimed(brute,P),d=runTimed(dc,P),h=runTimed(x=>hybrid(x,th),P);
+ lastResults.push({n,b,d,h});body.innerHTML+=`<tr><td>${P.length}</td><td>${b.ms.toFixed(3)}</td><td>${d.ms.toFixed(3)}</td><td>${h.ms.toFixed(3)}</td><td>${b.checks}</td><td>${d.checks}</td><td>${h.checks}</td></tr>`});
+ document.getElementById("benchStatus").textContent=`Benchmark completed using threshold ${th}. Measurements are from this browser session.`;
+ drawChart(lastResults);
+ if(lastResults.length){let z=lastResults[lastResults.length-1];let vals=[["Brute Force",z.b.ms],["Divide & Conquer",z.d.ms],["Hybrid",z.h.ms]].sort((a,b)=>a[1]-b[1]);document.getElementById("sBest").textContent=vals[0][0]}
+}
+function drawChart(rs){
+ const c=document.getElementById("chartCanvas"),ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);if(!rs.length)return;
+ let max=Math.max(...rs.flatMap(r=>[r.b.ms,r.d.ms,r.h.ms]),1),left=70,bottom=60,w=c.width-left-30,h=c.height-100;
+ ctx.strokeStyle="#94a3b8";ctx.beginPath();ctx.moveTo(left,20);ctx.lineTo(left,20+h);ctx.lineTo(c.width-20,20+h);ctx.stroke();
+ let groups=rs.length,gw=w/groups;rs.forEach((r,i)=>{let x=left+i*gw+gw*.12,bw=Math.min(25,gw*.18);
+ [["B",r.b.ms],["D",r.d.ms],["H",r.h.ms]].forEach((q,k)=>{let bh=q[1]/max*h;ctx.fillStyle=["#2563eb","#7c3aed","#16a34a"][k];ctx.fillRect(x+k*(bw+6),20+h-bh,bw,bh);ctx.fillStyle="#334155";ctx.font="12px Arial";ctx.fillText(q[0],x+k*(bw+6),20+h+18)});ctx.fillText(r.n,x,20+h+40)});
+ ctx.fillStyle="#334155";ctx.fillText("Execution time (ms)",10,18);ctx.fillText("Input size",c.width/2, c.height-10);
+}
+function optimizeThreshold(){
+ if(points.length<2)generateData();let ts=document.getElementById("thresholds").value.split(",").map(Number).filter(x=>x>=2),P=points.slice(0,Math.min(500,points.length)),body=document.querySelector("#thresholdTable tbody");body.innerHTML="";thresholdResults=[];
+ ts.forEach(t=>{let r=runTimed(x=>hybrid(x,t),P);thresholdResults.push({t,...r});body.innerHTML+=`<tr><td>${t}</td><td>${r.ms.toFixed(3)}</td><td>${r.checks}</td></tr>`});
+ thresholdResults.sort((a,b)=>a.ms-b.ms);if(thresholdResults.length){let best=thresholdResults[0];document.getElementById("thresholdResult").innerHTML=`<b>Experimentally best threshold: ${best.t}</b><br>Measured time: ${best.ms.toFixed(3)} ms. Use this value as evidence for the hybrid threshold on this workload.`;document.getElementById("threshold").value=best.t;document.getElementById("sThreshold").textContent=best.t}
+}
+generateData();
+</script>
+</body>
+</html>
